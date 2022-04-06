@@ -1,0 +1,6 @@
+.env
+# phpstorm project files
+/.idea/
+
+# IntelliJ IDEA project files
+*.iml
