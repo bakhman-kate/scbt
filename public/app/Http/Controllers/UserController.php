@@ -2,15 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreUserRequest;
-use App\Models\User;
-use App\Services\UserService;
-use Illuminate\Http\Request;
+use App\Helpers\RequestHelper;
+use App\Services\UserServiceInterface;
+use App\User;
+use Illuminate\Http\{JsonResponse, Request};
+use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
     /**
-     * @var UserService
+     * @var UserServiceInterface
      */
     protected $userService;
 
@@ -19,7 +20,7 @@ class UserController extends Controller
      *
      * @return void
      */
-    public function __construct(UserService $userService)
+    public function __construct(UserServiceInterface $userService)
     {
         $this->userService = $userService;
     }
@@ -29,38 +30,74 @@ class UserController extends Controller
      *
      * @param Request $request
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function show(Request $request)
+    public function show(Request $request): JsonResponse
     {
-        /**
-         * @var User $user
-         */
-        $user = $request->user();
+        if (!$request->isMethod('GET')) {
+            return RequestHelper::getDisallowMethodResponse(RequestHelper::getRequestId($request));
+        }
 
-        return response()->json($this->userService->getData($user));
+        $data = [];
+        /**
+         * @var User|null $user
+         */
+        if ($user = $request->user()) {
+            $data = $this->userService->getData($user);
+        }
+
+        return response()->json(['data' => $data]);
     }
 
     /**
      * Store a newly created user
      *
-     * @param StoreUserRequest $request
+     * @param Request $request
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function store(StoreUserRequest $request)
+    public function store(Request $request): JsonResponse
     {
-        $validated = $request->validated();
-        $fio = trim($request->input('last_name') . $request->input('name') . $request->input('middle_name'));
-        $validated['token'] = md5(trim($fio . $request->input('bd')));
+        if (!$request->isMethod('POST')) {
+            return RequestHelper::getDisallowMethodResponse(RequestHelper::getRequestId($request));
+        }
+
+        $validator = Validator::make($request->all(), [
+            'last_name' => 'required|string|max:255',
+            'name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+            'bd' => 'nullable|date_format:'.env('DEFAULT_DATE_FORMAT', 'Y-m-d H:i:s')
+        ]);
+
+        if ($validator->fails()) {
+            return RequestHelper::getCustomErrorResponse(
+                RequestHelper::getRequestId($request),
+                RequestHelper::BAD_REQUEST_CODE,
+                json_encode(['errors' => $validator->errors()])
+            );
+        }
 
         $data = [];
-        $user = $this->userService->create($validated);
-        if ($user) {
+        if ($this->userService->create($this->getValidatedData($request, $validator))) {
             $data['message'] = 'Пользователь успешно создан';
         }
 
-        return response()->json($data);
+        return response()->json(['data' => $data]);
+    }
+
+    /**
+     * @param Request $request
+     * @param \Illuminate\Contracts\Validation\Validator $validator
+     *
+     * @return array
+     */
+    protected function getValidatedData(Request $request, \Illuminate\Contracts\Validation\Validator $validator): array
+    {
+        $validated = $validator->validated();
+        $fio = trim($request->input('last_name') . ' ' . $request->input('name') . ' ' . $request->input('middle_name', ''));
+        $validated['access_token'] = md5(trim($fio . $request->input('bd', date(env('DEFAULT_DATE_FORMAT', 'Y-m-d H:i:s')))));
+
+        return $validated;
     }
 
 }

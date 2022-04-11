@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\User;
-use Illuminate\Database\Eloquent\{Builder, Model};
+use App\User;
 
-class UserService
+class UserService implements UserServiceInterface
 {
     /**
      * @param User $user
@@ -25,11 +24,13 @@ class UserService
     /**
      * @param array $data
      *
-     * @return Builder|Model
+     * @return bool
      */
-    public function create(array $data)
+    public function create(array $data): bool
     {
-        return User::query()->create($data);
+        $user = User::query()->create($data);
+
+        return $user->save();
     }
 
 }

@@ -1,8 +1,6 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,10 +13,7 @@ use App\Http\Controllers\UserController;
 |
 */
 
-Route::get('/ping', function (Request $request) {
-    return response()->json(['message' => 'Сервис работает']);
-});
+Route::any('/ping', 'PingController@index');
 
-Route::get('/user/info', [UserController::class, 'show']);
-
-Route::post('/user/create', [UserController::class, 'store']);
+Route::any('/user/info', 'UserController@show');
+Route::any('/user/create', 'UserController@store');
